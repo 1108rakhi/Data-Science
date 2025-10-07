@@ -35,9 +35,9 @@ def generate_description(request : PayloadRequest):
     metadata_list = store_metadata(request)
     if not metadata_list:
         raise HTTPException(status_code=404, detail="No data found to generate description")
-    col_names = [col["col_name"] for col in metadata_list]
+    # col_names = [col["col_name"] for col in metadata_list]
     try:
-        openai_response = generate_descriptions(request.table_name, col_names)
+        openai_response = generate_descriptions(request.table_name, metadata_list)
     except ValueError as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate descriptions: {str(e)}")
 

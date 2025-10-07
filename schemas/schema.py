@@ -25,9 +25,13 @@ class PayloadResponse(BaseModel):
 
 # business descriptions pydantic models
 class DescriptionSchema(BaseModel):
+    col_name : str
+    dtype : str
     business_name : str
     business_description : str
 
 class DescriptionResponse(BaseModel):
     table_name : str
     description : list[DescriptionSchema]
+    class Config:
+        from_attributes = True

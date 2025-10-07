@@ -10,10 +10,10 @@ genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 #     print(model.name)
 def generate_descriptions(table_name : str, description : list[dict]):
     command = f"""
-        As a description generator, generate business-friendly names and descriptions with around 300 char length for the 
+        As a description generator, generate business-friendly names and descriptions with around 200 char length for the 
         table name: {table_name} and return output as a JSON list like:
         [
-          {{"column": "column_name", "business_name": "business name" ,"business_description": "business meaning"}}
+          {{"col_name": "column_name","dtype":"datatype", "business_name": "business name" ,"business_description": "business meaning"}}
         ]
     """
     model = genai.GenerativeModel("gemini-2.5-flash")
