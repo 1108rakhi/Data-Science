@@ -35,3 +35,8 @@ class DescriptionResponse(BaseModel):
     description : list[DescriptionSchema]
     class Config:
         from_attributes = True
+
+# response schema for communication with glossary service
+class GlossaryDescriptionResponse(BaseModel):
+    term: str
+    description: str

@@ -1,10 +1,11 @@
 from fastapi import APIRouter, HTTPException, Depends
-from schemas.schema import PayloadRequest, PayloadResponse, MetadataSchema, DescriptionResponse, DescriptionSchema
+from schemas.schema import PayloadRequest, PayloadResponse, MetadataSchema, DescriptionResponse, DescriptionSchema, GlossaryDescriptionResponse
 from databases.database import store_metadata
 from sqlalchemy.orm import Session
 from databases import database
 from models import model
 from gemini_utils import generate_descriptions
+import httpx
 
 router = APIRouter()
 
@@ -54,3 +55,30 @@ def generate_description(request : PayloadRequest):
         table_name= request.table_name,
         description=descriptions
     )
+
+glossary_description_router = APIRouter()
+
+@glossary_description_router.get("/glossary_description/{glossary_id}", response_model=GlossaryDescriptionResponse)
+def glossary_description(id:int):
+    glossary_service_url = f"http://localhost:8001/glossary/{id}"
+    response = httpx.get(glossary_service_url)
+    output = response.json()
+    if not output:
+        raise HTTPException(status_code=500, detail="Unable to connect to glossary service")
+    
+    term = output.get("term")
+    if not term:
+        raise HTTPException(status_code=404, detail="Term not found")
+    metadata_list = [{"col_name": term, "desc": "STRING"}]
+    ai_response = generate_descriptions(term, metadata_list)
+    if isinstance(ai_response, list):
+        description_text = ai_response[0]["business_description"]
+    else:
+        description_text = "No description generated."
+
+    return GlossaryDescriptionResponse(
+        term=term,
+        description=description_text
+    )
+    
+
