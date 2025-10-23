@@ -1,0 +1,26 @@
+# FastAPI and dependencies
+fastapi==0.115.0
+uvicorn==0.30.1
+
+# Database + ORM
+sqlalchemy==2.0.31
+mysql-connector-python==9.0.0
+pyodbc==5.1.0
+alembic==1.13.1   # For migrations
+
+# Pydantic (for schema models)
+pydantic==2.8.2
+pydantic-core==2.20.1
+
+# Env management
+python-dotenv==1.0.1
+
+# jwt handling
+python-jose
+
+# pagination
+fastapi-pagination
+
+httpx
+python-dotenv
+google-generativeai

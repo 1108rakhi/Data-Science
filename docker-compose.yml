@@ -1,0 +1,27 @@
+services:
+
+  myapp:
+    build: "C:/Users/Rightdatauser/miniconda3/envs/project2/myapp"
+    container_name: user_container
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_URL=mysql+mysqlconnector://dextrus:Dextrus!1@10.10.20.29:3306/glossary_project
+
+  datascience:
+    build: "C:/Users/Rightdatauser/miniconda3/envs/Data Science"
+    container_name: glossary_container
+    ports:
+      - "8001:8001"
+    environment:
+      - DB_URL=mysql+mysqlconnector://root:rootroot@host.docker.internal:3306/project3
+
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"  

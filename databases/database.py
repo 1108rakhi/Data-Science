@@ -3,7 +3,7 @@ from sqlalchemy.orm import sessionmaker
 from models.model import MetadataStore
 from databases.base import Base
 
-DB_URL = "mysql+mysqlconnector://root:rootroot@localhost:3306/project3"
+DB_URL = "mysql+mysqlconnector://root:rootroot@host.docker.internal:3306/project3"
 engine = create_engine(DB_URL)
 SessionLocal = sessionmaker(bind = engine, autocommit = False, autoflush=False)
 

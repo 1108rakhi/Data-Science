@@ -60,7 +60,7 @@ glossary_description_router = APIRouter()
 
 @glossary_description_router.get("/glossary_description/{glossary_id}", response_model=GlossaryDescriptionResponse)
 def glossary_description(id:int):
-    glossary_service_url = f"http://localhost:8001/glossary/{id}"
+    glossary_service_url = f"http://myapp:8000/glossary/{id}"
     response = httpx.get(glossary_service_url)
     output = response.json()
     if not output:
@@ -80,5 +80,3 @@ def glossary_description(id:int):
         term=term,
         description=description_text
     )
-    
-
