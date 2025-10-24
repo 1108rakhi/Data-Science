@@ -2,8 +2,17 @@ from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import sessionmaker
 from models.model import MetadataStore
 from databases.base import Base
+import os
+from dotenv import load_dotenv
 
-DB_URL = "mysql+mysqlconnector://root:rootroot@host.docker.internal:3306/project3"
+load_dotenv()
+# DB_URL = "mysql+mysqlconnector://root:rootroot@host.docker.internal:3306/project3"
+if os.getenv("RUN_ENV") == "docker":
+    DB_URL = os.getenv("DB_URL_DOCKER")
+else:
+    DB_URL = os.getenv("DB_URL_LOCAL")
+
+    
 engine = create_engine(DB_URL)
 SessionLocal = sessionmaker(bind = engine, autocommit = False, autoflush=False)
 

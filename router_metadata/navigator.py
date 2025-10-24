@@ -7,6 +7,10 @@ from models import model
 from gemini_utils import generate_descriptions
 import httpx
 
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
 router = APIRouter()
 
 @router.post("/table_metadata", response_model=PayloadResponse)
@@ -60,8 +64,13 @@ glossary_description_router = APIRouter()
 
 @glossary_description_router.get("/glossary_description/{glossary_id}", response_model=GlossaryDescriptionResponse)
 def glossary_description(id:int):
-    glossary_service_url = f"http://myapp:8000/glossary/{id}"
-    response = httpx.get(glossary_service_url)
+    # glossary_service_url = f"http://myapp:8000/glossary/{id}"
+    if os.getenv("RUN_ENV") == "docker":
+        GLOSSARY_SERVICE_URL = os.getenv("GLOSSARY_SERVICE_URL_DOCKER")
+    else:
+        GLOSSARY_SERVICE_URL = os.getenv("GLOSSARY_SERVICE_URL_LOCAL")
+
+    response = httpx.get(GLOSSARY_SERVICE_URL)
     output = response.json()
     if not output:
         raise HTTPException(status_code=500, detail="Unable to connect to glossary service")

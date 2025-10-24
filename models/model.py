@@ -10,3 +10,18 @@ class MetadataStore(Base):
     table_name = Column(String(50))
     metadata_json = Column(JSON)
 
+# model for connection table
+class Connection(Base):
+    __tablename__ = "connections"
+    connection_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    connection_type = Column(String(20), nullable=False)
+    connection_name = Column(String(50), nullable=False)
+    domain_name = Column(String(50), nullable=False)
+    username = Column(String(50), nullable=False)
+    pswd = Column(String(50), nullable=False)
+    host = Column(String(10), nullable=False)
+    port = Column(String(10), nullable=False)
+    db_schema = Column(String(50), nullable=False)
+    created_by = Column(String(50))
+    modified_by = Column(String(50),nullable=False, default='null')
+

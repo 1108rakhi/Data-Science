@@ -24,3 +24,5 @@ fastapi-pagination
 httpx
 python-dotenv
 google-generativeai
+
+elasticsearch
