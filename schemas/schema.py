@@ -47,7 +47,7 @@ class ConnectionSchema(BaseModel):
     connection_id : int
     connection_type : str
     connection_name : str
-    domain_name : str
+    # domain_name : str
     username : str
     pswd : str
     host : str
@@ -70,9 +70,32 @@ class CreateConnection(BaseModel):
     
     connection_type : str
     connection_name : str
-    domain_name : str
+    # domain_name : str
     username : str
     pswd : str
     host : str
     port : str
     db_schema : str
+
+# jobs response models
+class JobSchema(BaseModel):
+    job_id : int
+    connection_id : int
+    job_name : str
+    
+    created_by : str
+    modified_by : Optional[str] = None
+    class config:
+        orm_mode = True
+
+class UpdateJob(BaseModel):
+    connection_id : int
+    job_name : str
+    include : Optional[str] = None
+    
+
+class CreateJob(BaseModel):
+    connection_id : int
+    job_name : str
+    include : Optional[str] = None
+  
