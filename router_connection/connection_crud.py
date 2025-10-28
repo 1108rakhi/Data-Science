@@ -156,6 +156,8 @@ def create_job(request : schema.CreateJob,
     new_job = model.Jobs(
         connection_id = request.connection_id,
         job_name = request.job_name,
+        matched_schemas = filtered_schemas,
+        matched_tables = filtered_tables,
         created_by = current_user
     )
     db.add(new_job)
@@ -214,30 +216,36 @@ def delete_job(job_id:int, db : Session = Depends(database.get_db)):
     return {"message": f"Job with ID {job_id} deleted successfully"}
 
 # helper function to run job
-def run_metadata_ingestion(connection):
+def run_metadata_ingestion(connection, filtered_schemas = None, filtered_tables = None):
     db_url = f"mysql+mysqlconnector://{connection.username}:{connection.pswd}@{connection.host}:{connection.port}/{connection.schema}"
     meta_engine = create_engine(db_url)
     inspector = inspect(meta_engine)
-    tables = inspector.get_table_names(schema=connection.schema)
+    schemas_to_ingest = filtered_schemas if filtered_schemas else [connection.schema]
     ingested_metadata = []
     session = SessionLocal()
-    
-    for table in tables:
-        columns = inspector.get_columns(table, schema=connection.schema)
-        metadata_json = [{"col_name": col["name"], "dtype": str(col["type"])} for col in columns]
-        session.add(
-            model.MetadataStore(
-                catalog=connection.schema,
-                schema=connection.schema,
-                table_name=table,
-                metadata_json=metadata_json
+    for schema in schemas_to_ingest:
+        all_tables = inspector.get_table_names(schema=connection.schema)
+        if filtered_tables:
+            tables = [t for t in all_tables if t in filtered_tables]
+        else:
+            tables = all_tables
+
+        for table in tables:
+            columns = inspector.get_columns(table, schema=connection.schema)
+            metadata_json = [{"col_name": col["name"], "dtype": str(col["type"])} for col in columns]
+            session.add(
+                model.MetadataStore(
+                    catalog=connection.schema,
+                    schema=connection.schema,
+                    table_name=table,
+                    metadata_json=metadata_json
+                )
             )
-        )
-        ingested_metadata.append({
-            "schema": connection.schema,
-            "table": table,
-            "columns": metadata_json
-        })
+            ingested_metadata.append({
+                "schema": connection.schema,
+                "table": tables,
+                "columns": metadata_json
+            })
     session.commit()
     session.close()
     return ingested_metadata
@@ -251,10 +259,16 @@ def run_job(job_id: int, db: Session = Depends(database.get_db)):
     connection = db.query(model.Connection).filter(model.Connection.connection_id == job.connection_id).first()
     if not connection:
         raise HTTPException(status_code=404, detail=" connection not found")
-    metadata_result = run_metadata_ingestion(connection)
+    filtered_schemas = job.matched_schemas if job.matched_schemas else None
+    filtered_tables = job.matched_tables if job.matched_tables else None
+    metadata_result = run_metadata_ingestion(connection,filtered_schemas, filtered_tables)
     return {
         "job_id": job.job_id,
         "connection_name": connection.connection_name,
+         "applied_filters": {
+            "schemas": filtered_schemas,
+            "tables": filtered_tables
+            },
         "tables_ingested": metadata_result
     }
     

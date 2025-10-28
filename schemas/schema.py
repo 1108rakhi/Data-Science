@@ -95,17 +95,6 @@ class UpdateJob(BaseModel):
 class CreateJob(BaseModel):
     connection_id : int
     job_name : str
-   
-class Filter(BaseModel):
-    job_id : int
-    connection_id : int
-    job_name : str
-    include_schema : str
-    include_table : str
-    created_by : str
-    modified_by : Optional[str] = None
-    class config:
-        orm_mode = True
 
 class JobDetails(BaseModel):
     job_id: int
