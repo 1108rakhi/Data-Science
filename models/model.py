@@ -21,7 +21,7 @@ class Connection(Base):
     pswd = Column(String(50), nullable=False)
     host = Column(String(20), nullable=False)
     port = Column(String(10), nullable=False)
-    db_schema = Column(String(50), nullable=False)
+    schema = Column(String(50), nullable=False)
     created_by = Column(String(50))
     modified_by = Column(String(50),nullable=False, default='null')
 

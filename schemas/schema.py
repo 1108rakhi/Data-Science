@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 
 # metadata pydantic models
 class PayloadRequest(BaseModel):
@@ -52,7 +52,7 @@ class ConnectionSchema(BaseModel):
     pswd : str
     host : str
     port : str
-    db_schema : str
+    schema : str
     created_by : Optional[str] = None
     modified_by : Optional[str] = None
     class Config:
@@ -63,7 +63,7 @@ class UpdateConnection(BaseModel):
     pswd : Optional[str] = None
     host : Optional[str] = None
     port : Optional[str] = None
-    db_schema : Optional[str] = None
+    schema : Optional[str] = None
 
 
 class CreateConnection(BaseModel):
@@ -75,7 +75,7 @@ class CreateConnection(BaseModel):
     pswd : str
     host : str
     port : str
-    db_schema : str
+    schema : str
 
 # jobs response models
 class JobSchema(BaseModel):
@@ -91,11 +91,34 @@ class JobSchema(BaseModel):
 class UpdateJob(BaseModel):
     connection_id : int
     job_name : str
-    include : Optional[str] = None
     
-
 class CreateJob(BaseModel):
     connection_id : int
     job_name : str
-    include : Optional[str] = None
+   
+class Filter(BaseModel):
+    job_id : int
+    connection_id : int
+    job_name : str
+    include_schema : str
+    include_table : str
+    created_by : str
+    modified_by : Optional[str] = None
+    class config:
+        orm_mode = True
+
+class JobDetails(BaseModel):
+    job_id: int
+    connection_id: int
+    job_name: str
+    created_by: str
+
+class Filter(BaseModel):
+    message: str
+    job_details: JobDetails
+    filtered_schemas: Optional[List[str]] = None
+    filtered_tables: Optional[List[str]] = None
+
+    class Config:
+        orm_mode = True
   
