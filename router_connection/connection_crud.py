@@ -1,10 +1,25 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 from databases import database
 from models import model
 from schemas import schema
 from jose import jwt, JWTError
 from typing import Optional
+from databases.database import Base
+from sqlalchemy import create_engine, inspect
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+if os.getenv("RUN_ENV") == "docker":
+    DB_URL = os.getenv("DB_URL_DOCKER")
+else:
+    DB_URL = os.getenv("DB_URL_LOCAL")
+
+engine = create_engine(DB_URL)
+SessionLocal = sessionmaker(bind = engine, autocommit = False, autoflush=False)
+
+Base.metadata.create_all(bind = engine)
 
 conn_router = APIRouter()
 
@@ -37,7 +52,7 @@ def create_connection(request: schema.CreateConnection, db: Session = Depends(da
         pswd=request.pswd,
         host=request.host,
         port=request.port,
-        db_schema=request.db_schema,
+        schema=request.schema,
         created_by=current_user
     )
     db.add(new_conn)
@@ -74,7 +89,7 @@ def update_connection(connection_id: int, request: schema.UpdateConnection, db: 
     connection.pswd = request.pswd
     connection.host = request.host
     connection.port = request.port
-    connection.db_schema = request.db_schema
+    connection.schema = request.schema
     connection.modified_by = current_user
 
     db.commit()
@@ -97,39 +112,76 @@ def delete_connection(connection_id: int, db: Session = Depends(database.get_db)
 job_router = APIRouter()
 
 # creating job
-@job_router.post("/jobs", response_model=schema.JobSchema)
-def create_job(request : schema.CreateJob, db : Session = Depends(database.get_db),  current_user : str = Depends(check_name)):
+@job_router.post("/jobs", response_model=schema.Filter)
+def create_job(request : schema.CreateJob,   
+               current_user : str = Depends(check_name),
+               db : Session = Depends(database.get_db),
+               include_schema : Optional[str] = None,
+               include_schema_type : Optional[str] = Query("contains", enum=["contains","startswith","endswith"]),
+               include_table : Optional[str] = None,
+               include_table_type : Optional[str] = Query("contains", enum=["contains","startswith","endswith"])
+               ):
+    
+    connection = db.query(model.Connection).filter(model.Connection.connection_id == request.connection_id).first()
+
+    if not connection:
+        raise HTTPException(status_code=404,detail=f"Connection ID {request.connection_id} not found"
+        )
+
+    # query = db.query(model.Connection)
+
+    db_url = f"mysql+mysqlconnector://{connection.username}:{connection.pswd}@{connection.host}:{connection.port}/{connection.schema}"
+    engine = create_engine(db_url)
+    inspector = inspect(engine)
+    tables = inspector.get_table_names()
+    schemas = inspector.get_schema_names()
+    filtered_schemas = None
+    filtered_tables = None
+    if include_schema:
+        if include_schema_type == "contains":
+            filtered_schemas = [s for s in schemas if include_schema.lower() in s.lower()]
+        elif include_schema_type == "startswith":
+            filtered_schemas = [s for s in schemas if s.lower().startswith(include_schema.lower())]
+        elif include_schema_type == "endswith":
+            filtered_schemas = [s for s in schemas if s.lower().endswith(include_schema.lower())]
+
+    if include_table:
+        if include_table_type == "contains":
+            filtered_tables = [t for t in tables if include_table.lower() in t.lower()]
+        elif include_table_type == "startswith":
+            filtered_tables = [t for t in tables if t.lower().startswith(include_table.lower())]
+        elif include_table_type == "endswith":
+            filtered_tables = [t for t in tables if t.lower().endswith(include_table.lower())]
+
     new_job = model.Jobs(
         connection_id = request.connection_id,
         job_name = request.job_name,
+        matched_schemas = filtered_schemas,
+        matched_tables = filtered_tables,
         created_by = current_user
     )
     db.add(new_job)
     db.commit()
     db.refresh(new_job)
-    return new_job
+    return {
+        "message": "Job created successfully",
+        "job_details": {
+            "job_id": new_job.job_id,
+            "connection_id": new_job.connection_id,
+            "job_name": new_job.job_name,
+            "created_by": new_job.created_by
+        },
+        "filtered_schemas": filtered_schemas,
+        "filtered_tables": filtered_tables
+    }
 
 
 # get all jobs
 @job_router.get("/jobs",response_model=list[schema.JobSchema])
-def get_job(include:Optional[str] = None,
-            include_type : Optional[str] = Query("contains", enum=["contains","startswith","endswith"]),
-            db:Session = Depends(database.get_db)
-            ):
-    query = db.query(model.Jobs).join(model.Connection)
-    if include:
-        if include_type == "contains":
-            query = query.filter(model.Connection.db_schema.like(f"%{include}%"))
-        elif include_type == "startswith":
-            query = query.filter(model.Connection.db_schema.like(f"{include}%"))
-        elif include_type == "endswith":
-            query = query.filter(model.Connection.db_schema.like(f"%{include}"))
-
- 
-    jobs = query.all()
+def get_job(db:Session = Depends(database.get_db)):
+    jobs = db.query(model.Jobs).all()
     if not jobs:
         raise HTTPException(status_code=404, detail="No jobs found matching filters")
-    
     return jobs
 
 # get jobs by id
@@ -162,6 +214,65 @@ def delete_job(job_id:int, db : Session = Depends(database.get_db)):
     db.delete(jobs)
     db.commit()
     return {"message": f"Job with ID {job_id} deleted successfully"}
+
+# helper function to run job
+def run_metadata_ingestion(connection, filtered_schemas = None, filtered_tables = None):
+    db_url = f"mysql+mysqlconnector://{connection.username}:{connection.pswd}@{connection.host}:{connection.port}/{connection.schema}"
+    meta_engine = create_engine(db_url)
+    inspector = inspect(meta_engine)
+    schemas_to_ingest = filtered_schemas if filtered_schemas else [connection.schema]
+    ingested_metadata = []
+    session = SessionLocal()
+    for schema in schemas_to_ingest:
+        all_tables = inspector.get_table_names(schema=connection.schema)
+        if filtered_tables:
+            tables = [t for t in all_tables if t in filtered_tables]
+        else:
+            tables = all_tables
+
+        for table in tables:
+            columns = inspector.get_columns(table, schema=connection.schema)
+            metadata_json = [{"col_name": col["name"], "dtype": str(col["type"])} for col in columns]
+            session.add(
+                model.MetadataStore(
+                    catalog=connection.schema,
+                    schema=connection.schema,
+                    table_name=table,
+                    metadata_json=metadata_json
+                )
+            )
+            ingested_metadata.append({
+                "schema": connection.schema,
+                "table": tables,
+                "columns": metadata_json
+            })
+    session.commit()
+    session.close()
+    return ingested_metadata
+
+# api to run job
+@job_router.post("/job_run/{job_id}")
+def run_job(job_id: int, db: Session = Depends(database.get_db)):
+    job = db.query(model.Jobs).filter(model.Jobs.job_id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Job not found")
+    connection = db.query(model.Connection).filter(model.Connection.connection_id == job.connection_id).first()
+    if not connection:
+        raise HTTPException(status_code=404, detail=" connection not found")
+    filtered_schemas = job.matched_schemas if job.matched_schemas else None
+    filtered_tables = job.matched_tables if job.matched_tables else None
+    metadata_result = run_metadata_ingestion(connection,filtered_schemas, filtered_tables)
+    return {
+        "job_id": job.job_id,
+        "connection_name": connection.connection_name,
+         "applied_filters": {
+            "schemas": filtered_schemas,
+            "tables": filtered_tables
+            },
+        "tables_ingested": metadata_result
+    }
+    
+
 
 
 
