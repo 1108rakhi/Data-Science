@@ -243,7 +243,7 @@ def run_metadata_ingestion(connection, filtered_schemas = None, filtered_tables 
             )
             ingested_metadata.append({
                 "schema": connection.schema,
-                "table": tables,
+                "table": table,
                 "columns": metadata_json
             })
     session.commit()
